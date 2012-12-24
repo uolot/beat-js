@@ -1,0 +1,220 @@
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+</head>
+
+<body>
+
+<div class="controls">
+    <a class="button play-button" href="#">Play</a>
+    <a class="button pause-button" href="#">Pause</a>
+    <a class="button stop-button" href="#">Stop</a>
+    BPM: <input type="text" name="bpm" class="button bpm-input"/>
+    <a class="button bpm-button" href="#">Set</a>
+</div>
+
+<div class="channels">
+</div>
+
+</span>
+
+
+<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+</body>
+
+<script type="text/javascript">
+$(function() {
+    var cl = function () { console.log(arguments) };
+
+
+    var Sample = function (url, volume) {
+        var audio = new Audio(url);
+        audio.load();
+        audio.volume = volume || 1.0;
+        this.audio = audio;
+    }
+
+    Sample.prototype.play = function () {
+        this.rewind();
+        this.audio.play();
+    };
+    Sample.prototype.rewind = function () {
+        this.audio.currentTime = 0;
+    }
+    Sample.prototype.stop = function () {
+        this.audio.pause();
+        this.audio.currentTime = 0;
+    };
+
+
+    var Channel = function (sample) {
+        this.sample = sample;
+    };
+    Channel.prototype.getBar = function(i) {
+        return Boolean(this.bars[i]);
+    };
+    Channel.prototype.setBar = function(i, v) {
+        this.bars[i] = Number(Boolean(v));
+    };
+    Channel.prototype.toggleBar = function (i) {
+        this.setBar(i, !this.getBar(i));
+    };
+    Channel.prototype.load = function(bars) {
+        this.bars = bars;
+    };
+    Channel.prototype.playBar = function(i) {
+        if (this.getBar(i))
+            this.sample.play();
+    };
+    Channel.prototype.setLength = function (l) {
+        this.bars = new Array(l);
+        for (i = 0; i < this.bars.length; i++)
+            this.bars[i] = 0;
+    }
+
+
+
+    var Song = function () {
+        this.channels = {};
+        this.timerId = undefined;
+        this.currentBar = 0;
+        this.delay = 250;
+        this.length = 16;
+        this.setBPM(120);
+    };
+
+    Song.prototype.addChannel = function (name, channel) {
+        this.channels[name] = channel;
+        channel.setLength(this.length);
+    };
+    Song.prototype.loadChannel = function (name, bars) {
+        this.channels[name].load(bars);
+    };
+
+    Song.prototype.play = function () {
+        var self = this;
+
+        this.timerId = setInterval(function() {
+            updateView(self);
+            var delay = 5;
+            for (ch in self.channels) {
+                setTimeout( function (ch, bar) {
+                    self.channels[ch].playBar(bar)
+                }, delay, ch, self.currentBar);
+                delay += 10;
+            }
+            self.currentBar = ++self.currentBar % self.length;
+        }, self.delay)
+    };
+    Song.prototype.stop = function () {
+        this.pause();
+        this.currentBar = 0;
+    };
+    Song.prototype.pause = function () {
+        clearInterval(this.timerId);
+    };
+    Song.prototype.setBPM = function (bpm) {
+        this.bpm = bpm;
+        this.delay = 15000.0 / bpm;
+    };
+    Song.prototype.setLength = function (l) {
+        for (ch in this.channels) {
+            this.channels[ch].setLength(l);
+        }
+        this.length = l;
+    };
+
+
+
+    kick = new Channel(new Sample("http://www.daimi.au.dk/~pmn/spf02/CDROM/pr4/sound/amp300_16bit_mono/bass/bass6_5.wav"));
+
+    snare = new Channel(new Sample("http://www.daimi.au.dk/~pmn/spf02/CDROM/pr4/sound/amp300_16bit_mono/snare/rimsnare_12.wav"));
+
+    hat = new Channel(new Sample("http://daimi.au.dk/~pmn/spf02/CDROM/pr4/sound/amp300_16bit_mono/hihat/hihat_closed_1_5.wav"));
+
+
+    song = new Song();
+    song.addChannel('kick', kick);
+    song.addChannel('snare', snare);
+    song.addChannel('hat', hat);
+    song.setBPM(120);
+
+
+    $('.play-button').on('click', function(e) {
+        song.play();
+    });
+    $('.pause-button').on('click', function(e) {
+        song.pause();
+    });
+    $('.stop-button').on('click', function(e) {
+        song.stop();
+    });
+
+    $('.channels').on('click', '.bar', function(e) {
+        var channel = $(this).data('channel');
+        var pos = $(this).data('pos');
+        song.channels[channel].toggleBar(pos);
+        updateView(song);
+    });
+
+
+
+    var BarsView = function (bars, currentBar, channel) {
+        this.bars = bars;
+        this.currentBar = currentBar;
+        this.channel = channel;
+        return this;
+    };
+    BarsView.prototype.render = function () {
+        var html = "";
+        for (i in this.bars) {
+            var active = (this.bars[i] ? "active " : "");
+            var current = ((i == this.currentBar) ? "current " : "");
+            var marker = (i % 4 != 0) ? "marker " : "";
+            html += "<div class='bar " + active + current + marker +
+                "' + data-channel='" + this.channel +
+                "' + data-pos='" + i + "'>" +
+                "</div>";
+        }
+        return html;
+    };
+
+    var ChannelView = function (channel, name, currentBar) {
+        this.channel = channel;
+        this.name = name;
+        this.currentBar = currentBar;
+        return this;
+    };
+    ChannelView.prototype.render = function () {
+        return "" +
+            "<div class='channel'>" +
+            "<div class='name'>" + this.name + "</div>" +
+            "<div class='bars'>" + new BarsView(this.channel.bars, this.currentBar, this.name).render() + "</div>" +
+            "</div>" +
+            "</div>";
+    };
+
+    var SongView = function(song) {
+        this.song = song;
+        return this;
+    }
+    SongView.prototype.render = function() {
+        var html = "";
+        for (i in this.song.channels) {
+            html += new ChannelView(this.song.channels[i], i, this.song.currentBar).render();
+        }
+        return html;
+    }
+
+    $('.bpm-button').on('click', function () {
+        var bpm = $('.bpm-input').val();
+        song.setBPM(bpm);
+    });
+
+    var updateView = function (song) {
+        $('.channels').html(new SongView(song).render());
+    };
+
+    updateView(song);
+    $('.bpm-input').val(song.bpm);
+});
+</script>
