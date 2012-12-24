@@ -18,9 +18,14 @@ Sample.prototype.stop = function () {
 };
 
 
+var CHANNEL_LENGTH = 16;
+
 
 var Channel = function (sample) {
     this.sample = sample;
+    this.bars = new Array(CHANNEL_LENGTH);
+    for (i = 0; i < this.bars.length; i++)
+        this.bars[i] = 0;
 };
 Channel.prototype.getBar = function(i) {
     return Boolean(this.bars[i]);
@@ -38,11 +43,6 @@ Channel.prototype.playBar = function(i) {
     if (this.getBar(i))
         this.sample.play();
 };
-Channel.prototype.setLength = function (l) {
-    this.bars = new Array(l);
-    for (i = 0; i < this.bars.length; i++)
-        this.bars[i] = 0;
-}
 
 
 
@@ -50,14 +50,11 @@ var Song = function () {
     this.channels = {};
     this.timerId = undefined;
     this.currentBar = 0;
-    this.delay = 250;
-    this.length = 16;
     this.setBPM(120);
 };
 
 Song.prototype.addChannel = function (name, channel) {
     this.channels[name] = channel;
-    channel.setLength(this.length);
 };
 Song.prototype.loadChannel = function (name, bars) {
     this.channels[name].load(bars);
@@ -75,7 +72,7 @@ Song.prototype.play = function () {
             }, delay, ch, self.currentBar);
             delay += 10;
         }
-        self.currentBar = ++self.currentBar % self.length;
+        self.currentBar = ++self.currentBar % CHANNEL_LENGTH;
     }, self.delay)
 };
 Song.prototype.stop = function () {
@@ -88,12 +85,6 @@ Song.prototype.pause = function () {
 Song.prototype.setBPM = function (bpm) {
     this.bpm = bpm;
     this.delay = 15000.0 / bpm;
-};
-Song.prototype.setLength = function (l) {
-    for (ch in this.channels) {
-        this.channels[ch].setLength(l);
-    }
-    this.length = l;
 };
 
 
