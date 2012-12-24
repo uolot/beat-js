@@ -144,9 +144,11 @@ $(function() {
     });
     $('.pause-button').on('click', function(e) {
         song.pause();
+        updateView(song);
     });
     $('.stop-button').on('click', function(e) {
         song.stop();
+        updateView(song);
     });
 
     $('.channels').on('click', '.bar', function(e) {
